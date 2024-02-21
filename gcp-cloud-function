@@ -1,0 +1,35 @@
+import pandas as pd
+from pandas.io import gbq
+from google.cloud import bigquery
+
+def csv_to_gbq(event, context):
+    lst = []
+    file_name = event['name']
+    table_name = file_name.split('.')[0]
+
+    # Event,File metadata details writing into Big Query
+    dct={
+         'Event_ID':context.event_id,
+         'Event_type':context.event_type,
+         'Bucket_name':event['bucket'],
+         'File_name':event['name'],
+         'Created':event['timeCreated'],
+         'Updated':event['updated']
+        }
+    lst.append(dct)
+    df_metadata = pd.DataFrame.from_records(lst)
+    df_metadata.to_gbq('data_from_storage.metadata', 
+                        project_id='', 
+                        if_exists='append',
+                        location='eu')
+    print("Metadata uploaded successfully.")
+    
+    # Actual file data, writing to Big Query
+    df_data = pd.read_csv('gs://' + event['bucket'] + '/' + file_name)
+
+    df_data.to_gbq('data_from_storage.' + table_name, 
+                        project_id='', 
+                        if_exists='append',
+                        location='eu')
+    print("File uploaded successfully.")
+
